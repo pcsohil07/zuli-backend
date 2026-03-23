@@ -5,15 +5,16 @@ const mongoose = require("mongoose");
 const app = express();
 
 // 🔥 MONGO URL
-const MONGO_URL = "mongodb+srv://zuli:zuli7300@cluster0.5w30xxk.mongodb.net/?retryWrites=true&w=majority";
+const MONGO_URL = "mongodb+srv://zuli:zuli7300@cluster0.5w30xxk.mongodb.net/zuli?retryWrites=true&w=majority";
 
-// 🔥 CONNECT DB
 mongoose.connect(MONGO_URL)
   .then(() => console.log("MongoDB Connected ✅"))
   .catch(err => console.log("DB Error:", err));
 
 app.use(cors());
 app.use(express.json());
+
+// 📦 ORDER MODEL
 const Order = mongoose.model("Order", {
   name: String,
   qty: Number,
@@ -28,25 +29,64 @@ const Order = mongoose.model("Order", {
     default: "Pending"
   }
 });
+
 // 🧾 CREATE ORDER
 app.post("/order", async (req, res) => {
   try {
-    const orderData = req.body;
-
-    const newOrder = new Order(orderData);
+    const newOrder = new Order(req.body);
     await newOrder.save();
 
-    console.log("📦 Saved to DB:", newOrder);
-
-    res.json({ message: "Order saved in database ✅" });
+    res.json({
+      success: true,
+      orderId: newOrder._id
+    });
 
   } catch (error) {
-    console.log("Error:", error);
-    res.status(500).json({ message: "Error saving order" });
+    console.log(error);
+    res.status(500).json({ message: "Order error ❌" });
   }
 });
-// 🧾 ORDER API
-// ✅ UPDATE STATUS
+
+// 🔥 TRACK ORDER (FIXED)
+app.get("/track/:id", async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.json({
+        success: false,
+        message: "Order not found ❌"
+      });
+    }
+
+    res.json({
+      success: true,
+      status: order.status,
+      name: order.name,
+      qty: order.qty,
+      total: order.total,
+      customerName: order.customerName
+    });
+
+  } catch (error) {
+    res.json({
+      success: false,
+      message: "Invalid Order ID ❌"
+    });
+  }
+});
+
+// 📦 GET ALL ORDERS (ADMIN)
+app.get("/orders", async (req, res) => {
+  try {
+    const orders = await Order.find().sort({ _id: -1 });
+    res.json(orders);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching orders" });
+  }
+});
+
+// ✅ UPDATE STATUS (ADMIN)
 app.put("/order/:id", async (req, res) => {
   try {
     await Order.findByIdAndUpdate(req.params.id, {
@@ -59,21 +99,7 @@ app.put("/order/:id", async (req, res) => {
   }
 });
 
-// TEST ROUTE
-app.get("/", (req, res) => {
-  res.send("ZULI Backend Running 🚀");
-});
-
-// 📦 GET ALL ORDERS
-app.get("/orders", async (req, res) => {
-  try {
-    const orders = await Order.find().sort({ _id: -1 });
-    res.json(orders);
-  } catch (error) {
-    res.status(500).json({ message: "Error fetching orders" });
-  }
-});
-// ❌ DELETE ORDER
+// ❌ DELETE ORDER (FIXED)
 app.delete("/order/:id", async (req, res) => {
   try {
     await Order.findByIdAndDelete(req.params.id);
@@ -82,6 +108,15 @@ app.delete("/order/:id", async (req, res) => {
     res.status(500).json({ message: "Delete error" });
   }
 });
-app.listen(5000, () => {
-  console.log("Server running on port 5000");
+
+// 🧪 TEST ROUTE
+app.get("/", (req, res) => {
+  res.send("ZULI Backend Running 🚀");
+});
+
+// 🚀 SERVER START
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+  console.log("Server running on port", PORT);
 });
