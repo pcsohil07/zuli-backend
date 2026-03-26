@@ -79,23 +79,20 @@ app.get("/track/:id", async (req, res) => {
 // 📦 GET ALL ORDERS (ADMIN)
 app.get("/orders", async (req, res) => {
   try {
-    const orders = await Order.find().sort({ _id: -1 });
+    const phone = req.query.phone;
+
+    let orders;
+
+    if(phone){
+      orders = await Order.find({ phone }).sort({ _id: -1 });
+    } else {
+      orders = await Order.find().sort({ _id: -1 });
+    }
+
     res.json(orders);
+
   } catch (error) {
     res.status(500).json({ message: "Error fetching orders" });
-  }
-});
-
-// ✅ UPDATE STATUS (ADMIN)
-app.put("/order/:id", async (req, res) => {
-  try {
-    await Order.findByIdAndUpdate(req.params.id, {
-      status: "Delivered"
-    });
-
-    res.json({ message: "Marked as Delivered ✅" });
-  } catch (error) {
-    res.status(500).json({ message: "Update error" });
   }
 });
 
@@ -106,6 +103,22 @@ app.delete("/order/:id", async (req, res) => {
     res.json({ message: "Order deleted ❌" });
   } catch (error) {
     res.status(500).json({ message: "Delete error" });
+  }
+});
+
+// 🔄 UPDATE ORDER STATUS (VERY IMPORTANT)
+app.put("/order/:id", async (req, res) => {
+  try {
+    const { status } = req.body;
+
+    await Order.findByIdAndUpdate(req.params.id, {
+      status: status || "Pending"
+    });
+
+    res.json({ message: "Status updated ✅" });
+
+  } catch (error) {
+    res.status(500).json({ message: "Update error ❌" });
   }
 });
 
