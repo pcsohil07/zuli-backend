@@ -18,6 +18,10 @@ app.use(express.json());
 const Order = mongoose.model("Order", {
   name: String,
   qty: Number,
+
+  items: Array,              
+  subtotal: Number,          
+  deliveryCharge: Number,    
   total: Number,
 
   customerName: String,
@@ -33,7 +37,36 @@ const Order = mongoose.model("Order", {
 // 🧾 CREATE ORDER
 app.post("/order", async (req, res) => {
   try {
-    const newOrder = new Order(req.body);
+    
+    const {
+      name,
+      qty,
+      items,
+      subtotal,
+      deliveryCharge,
+      total,
+      customerName,
+      phone,
+      address
+    } = req.body;
+
+
+    if (!customerName || !phone || !address) {
+    return res.status(400).json({ message: "Missing details ❌" });
+}
+    
+  const newOrder = new Order({
+      name,
+      qty,
+      items,
+      subtotal: subtotal || 0,
+      deliveryCharge: deliveryCharge || 0,
+      total: total || 0,
+      customerName,
+      phone,
+      address
+    });
+
     await newOrder.save();
 
     res.json({
@@ -60,13 +93,15 @@ app.get("/track/:id", async (req, res) => {
     }
 
     res.json({
-      success: true,
-      status: order.status,
-      name: order.name,
-      qty: order.qty,
-      total: order.total,
-      customerName: order.customerName
-    });
+  success: true,
+  status: order.status,
+  name: order.name,
+  qty: order.qty,
+  subtotal: order.subtotal,
+  deliveryCharge: order.deliveryCharge,
+  total: order.total,
+  customerName: order.customerName
+});
 
   } catch (error) {
     res.json({
