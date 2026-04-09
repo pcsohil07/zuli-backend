@@ -15,18 +15,21 @@ app.use(cors());
 app.use(express.json());
 
 // 📦 ORDER MODEL
-const Order = mongoose.model("Order", {
+const Order = mongoose.models.Order || mongoose.model("Order", {
   name: String,
   qty: Number,
 
-  items: Array,              
-  subtotal: Number,          
-  deliveryCharge: Number,    
+  items: Array,
+  subtotal: Number,
+  deliveryCharge: Number,
   total: Number,
 
   customerName: String,
   phone: String,
   address: String,
+
+  discountApplied: Boolean,
+  discountAmount: Number,
 
   status: {
     type: String,
@@ -50,28 +53,45 @@ app.post("/order", async (req, res) => {
       address
     } = req.body;
 
-
     if (!customerName || !phone || !address) {
-    return res.status(400).json({ message: "Missing details ❌" });
-}
-    
-  const newOrder = new Order({
+      return res.status(400).json({ message: "Missing details ❌" });
+    }
+
+    // 🔥 CHECK FIRST ORDER
+    const cleanPhone = phone.replace(/\D/g, ""); // sirf numbers
+
+    const existingOrder = await Order.findOne({
+    phone: new RegExp(cleanPhone + "$")
+});
+
+    let discount = 0;
+
+    if (!existingOrder) {
+      discount = total * 0.10;
+    }
+
+    const finalTotal = total - discount;
+
+    const newOrder = new Order({
       name,
       qty,
       items,
       subtotal: subtotal || 0,
       deliveryCharge: deliveryCharge || 0,
-      total: total || 0,
+      total: finalTotal,
       customerName,
-      phone,
-      address
+      phone: cleanPhone,
+      address,
+      discountApplied: discount > 0,
+      discountAmount: discount
     });
 
     await newOrder.save();
 
     res.json({
       success: true,
-      orderId: newOrder._id
+      orderId: newOrder._id,
+      discount: discount
     });
 
   } catch (error) {
