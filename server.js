@@ -9,7 +9,10 @@ const MONGO_URL = "mongodb+srv://zuli:zuli7300@cluster0.5w30xxk.mongodb.net/zuli
 
 mongoose.connect(MONGO_URL)
   .then(() => console.log("MongoDB Connected ✅"))
-  .catch(err => console.log("DB Error:", err));
+  .catch(err => {
+    console.log("DB Error ❌:", err);
+    process.exit(1);
+  });
 
 app.use(cors());
 app.use(express.json());
