@@ -19,10 +19,9 @@ app.use(express.json());
 
 // 📦 ORDER MODEL
 const Order = mongoose.models.Order || mongoose.model("Order", {
-  name: String,
-  qty: Number,
 
-  items: Array,
+  items: Array, // ✅ MAIN DATA
+
   subtotal: Number,
   deliveryCharge: Number,
   total: Number,
@@ -45,16 +44,18 @@ app.post("/order", async (req, res) => {
   try {
     
     const {
-      name,
-      qty,
-      items,
-      subtotal,
-      deliveryCharge,
-      total,
-      customerName,
-      phone,
-      address
-    } = req.body;
+  items,
+  subtotal,
+  deliveryCharge,
+  total,
+  customerName,
+  phone,
+  address
+} = req.body;
+
+    if (!items || items.length === 0) {
+  return res.status(400).json({ message: "No items ❌" });
+}
 
     if (!customerName || !phone || !address) {
       return res.status(400).json({ message: "Missing details ❌" });
@@ -70,24 +71,25 @@ app.post("/order", async (req, res) => {
     let discount = 0;
 
     if (!existingOrder) {
-      discount = total * 0.10;
+      discount = Math.round(total * 0.10);
     }
 
     const finalTotal = total - discount;
 
-    const newOrder = new Order({
-      name,
-      qty,
-      items,
-      subtotal: subtotal || 0,
-      deliveryCharge: deliveryCharge || 0,
-      total: finalTotal,
-      customerName,
-      phone: cleanPhone,
-      address,
-      discountApplied: discount > 0,
-      discountAmount: discount
-    });
+   const newOrder = new Order({
+  items, // ✅ REAL DATA
+
+  subtotal: subtotal || 0,
+  deliveryCharge: deliveryCharge || 0,
+  total: finalTotal,
+
+  customerName,
+  phone: cleanPhone,
+  address,
+
+  discountApplied: discount > 0,
+  discountAmount: discount
+});
 
     await newOrder.save();
 
@@ -118,11 +120,12 @@ app.get("/track/:id", async (req, res) => {
     res.json({
   success: true,
   status: order.status,
-  name: order.name,
-  qty: order.qty,
+  items: order.items, // ✅ correct
+
   subtotal: order.subtotal,
   deliveryCharge: order.deliveryCharge,
   total: order.total,
+
   customerName: order.customerName
 });
 
