@@ -29,6 +29,9 @@ const orderSchema = new mongoose.Schema({
   customerName: String,
   phone: String,
   address: String,
+  landmark: String,
+  city: String,
+  pincode: String,
 
   discountApplied: Boolean,
   discountAmount: Number,
@@ -45,29 +48,37 @@ const Order = mongoose.models.Order || mongoose.model("Order", orderSchema);
 app.post("/order", async (req, res) => {
   try {
     
-    const {
+   const {
   items,
   subtotal,
   deliveryCharge,
   total,
   customerName,
   phone,
-  address
+  address,
+  landmark,
+  city,
+  pincode
 } = req.body;
 
     if (!items || items.length === 0) {
   return res.status(400).json({ message: "No items ❌" });
 }
 
-    if (!customerName || !phone || !address) {
+    if (!customerName || !phone || !address || !city || !pincode){
       return res.status(400).json({ message: "Missing details ❌" });
     }
 
     // 🔥 CHECK FIRST ORDER
-    const cleanPhone = phone.replace(/\D/g, ""); // sirf numbers
+const cleanPhone = phone.replace(/\D/g, ""); // sirf numbers
 
-    const existingOrder = await Order.findOne({
-    phone: new RegExp(cleanPhone + "$")
+// ✅ ADD THIS
+if(cleanPhone.length !== 10){
+  return res.status(400).json({ message: "Invalid phone ❌" });
+}
+
+const existingOrder = await Order.findOne({
+  phone: new RegExp(cleanPhone + "$")
 });
 
     let discount = 0;
@@ -88,6 +99,10 @@ app.post("/order", async (req, res) => {
   customerName,
   phone: cleanPhone,
   address,
+  landmark,
+  city,
+  pincode,
+
 
   discountApplied: discount > 0,
   discountAmount: discount
@@ -128,7 +143,12 @@ app.get("/track/:id", async (req, res) => {
   deliveryCharge: order.deliveryCharge,
   total: order.total,
 
-  customerName: order.customerName
+  customerName: order.customerName,
+  phone: order.phone,
+  address: order.address,
+  landmark: order.landmark,
+  city: order.city,
+  pincode: order.pincode
 });
 
   } catch (error) {
