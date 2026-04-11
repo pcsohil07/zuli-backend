@@ -18,9 +18,9 @@ app.use(cors());
 app.use(express.json());
 
 // 📦 ORDER MODEL
-const Order = mongoose.models.Order || mongoose.model("Order", {
+const orderSchema = new mongoose.Schema({
 
-  items: Array, // ✅ MAIN DATA
+  items: Array,
 
   subtotal: Number,
   deliveryCharge: Number,
@@ -37,8 +37,10 @@ const Order = mongoose.models.Order || mongoose.model("Order", {
     type: String,
     default: "Pending"
   }
-});
 
+}, { timestamps: true }); // 🔥 THIS IS THE MAGIC
+
+const Order = mongoose.models.Order || mongoose.model("Order", orderSchema);
 // 🧾 CREATE ORDER
 app.post("/order", async (req, res) => {
   try {
