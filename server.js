@@ -1,3 +1,5 @@
+require("dotenv").config();
+console.log("🔥 NEW SERVER CODE RUNNING");
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
@@ -5,7 +7,12 @@ const mongoose = require("mongoose");
 const app = express();
 
 // 🔥 MONGO URL
-const MONGO_URL = "mongodb+srv://zuli:zuli7300@cluster0.5w30xxk.mongodb.net/zuli?retryWrites=true&w=majority";
+const MONGO_URL = process.env.MONGO_URI;
+
+if (!MONGO_URL) {
+  console.log("❌ MONGO_URI missing");
+  process.exit(1);
+}
 
 mongoose.connect(MONGO_URL)
   .then(() => console.log("MongoDB Connected ✅"))
@@ -17,8 +24,13 @@ mongoose.connect(MONGO_URL)
 app.use(cors());
 app.use(express.json());
 
+
+
+
+
 // 📦 ORDER MODEL
 const orderSchema = new mongoose.Schema({
+  orderId: { type: String, unique: true },
 
   items: Array,
 
@@ -44,11 +56,33 @@ const orderSchema = new mongoose.Schema({
 }, { timestamps: true }); // 🔥 THIS IS THE MAGIC
 
 const Order = mongoose.models.Order || mongoose.model("Order", orderSchema);
+
+
+// 🔍 CHECK FIRST ORDER API (ADD THIS)
+app.get("/check-first-order/:phone", async (req, res) => {
+  try {
+    const cleanPhone = req.params.phone.replace(/\D/g, "");
+
+    const existingOrder = await Order.findOne({ phone: cleanPhone });
+
+    if (existingOrder) {
+      res.json({ firstOrder: false });
+    } else {
+      res.json({ firstOrder: true });
+    }
+
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: "Server error ❌" });
+  }
+});
+
 // 🧾 CREATE ORDER
 app.post("/order", async (req, res) => {
   try {
     
    const {
+  orderId,   // 🔥 ADD THIS
   items,
   subtotal,
   deliveryCharge,
@@ -65,7 +99,7 @@ app.post("/order", async (req, res) => {
   return res.status(400).json({ message: "No items ❌" });
 }
 
-    if (!customerName || !phone || !address || !city || !pincode){
+    if (!customerName || !phone || !address){
       return res.status(400).json({ message: "Missing details ❌" });
     }
 
@@ -78,20 +112,26 @@ if(cleanPhone.length !== 10){
 }
 
 const existingOrder = await Order.findOne({
-  phone: new RegExp(cleanPhone + "$")
+  phone: cleanPhone
 });
 
-    let discount = 0;
+    // 🔥 FINAL TOTAL (frontend already calculated)
+// 🔥 DISCOUNT + FINAL TOTAL (single clean logic)
+let discount = 0;
+let finalTotal = total;
 
-    if (!existingOrder) {
-      discount = Math.round(total * 0.10);
-    }
+if (!existingOrder) {
+  discount = Math.round((subtotal + deliveryCharge) * 0.10);
+  finalTotal = total - discount;
+}
 
-    const finalTotal = total - discount;
+   const finalOrderId = 
+  "ZULI-" + Date.now() + "-" + Math.floor(100 + Math.random()*900);
 
-   const newOrder = new Order({
-  items, // ✅ REAL DATA
+const newOrder = new Order({
+  orderId: finalOrderId,  
 
+  items,
   subtotal: subtotal || 0,
   deliveryCharge: deliveryCharge || 0,
   total: finalTotal,
@@ -103,7 +143,6 @@ const existingOrder = await Order.findOne({
   city,
   pincode,
 
-
   discountApplied: discount > 0,
   discountAmount: discount
 });
@@ -111,21 +150,49 @@ const existingOrder = await Order.findOne({
     await newOrder.save();
 
     res.json({
-      success: true,
-      orderId: newOrder._id,
-      discount: discount
-    });
+  success: true,
+  orderId: finalOrderId,
+  discount: discount,
+  finalTotal: finalTotal   // 🔥 add this
+});
 
   } catch (error) {
     console.log(error);
-    res.status(500).json({ message: "Order error ❌" });
+    
+    if(error.code === 11000){
+  return res.status(400).json({ message: "Duplicate order ID ❌" });
+}
+
+res.status(500).json({ message: "Order error ❌" });
+  }
+});
+
+
+app.get("/orders-by-phone/:phone", async (req, res) => {
+  try {
+    const cleanPhone = req.params.phone.replace(/\D/g, "");
+
+    const orders = await Order.find({ phone: cleanPhone })
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      orders: orders
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching orders ❌"
+    });
   }
 });
 
 // 🔥 TRACK ORDER (FIXED)
 app.get("/track/:id", async (req, res) => {
+
   try {
-    const order = await Order.findById(req.params.id);
+    const order = await Order.findOne({ orderId: req.params.id });
 
     if (!order) {
       return res.json({
@@ -136,8 +203,12 @@ app.get("/track/:id", async (req, res) => {
 
     res.json({
   success: true,
+
+  orderId: order.orderId,        // 🔥 ADD THIS
+  createdAt: order.createdAt,    // 🔥 ADD THIS
+
   status: order.status,
-  items: order.items, // ✅ correct
+  items: order.items,
 
   subtotal: order.subtotal,
   deliveryCharge: order.deliveryCharge,
@@ -215,4 +286,31 @@ const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log("Server running on port", PORT);
+});
+
+app.get("/order", async (req, res) => {
+  const { phone, orderId } = req.query;
+
+  try {
+
+    if(!phone || !orderId){
+      return res.json([]);
+    }
+
+    const cleanPhone = phone.replace(/\D/g, "");
+
+    const order = await Order.findOne({
+      phone: cleanPhone,
+      orderId: orderId
+    });
+
+    if(!order){
+      return res.json([]);
+    }
+
+    res.json([order]);
+
+  } catch (err) {
+    res.status(500).json({ message: "Server error ❌" });
+  }
 });
