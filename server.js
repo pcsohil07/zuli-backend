@@ -61,18 +61,18 @@ const Order = mongoose.models.Order || mongoose.model("Order", orderSchema);
 // 🔍 CHECK FIRST ORDER API (ADD THIS)
 app.get("/check-first-order/:phone", async (req, res) => {
   try {
-    const cleanPhone = req.params.phone.replace(/\D/g, "");
+    const cleanPhone = req.params.phone.replace(/\D/g, "").slice(-10);
 
-    const existingOrder = await Order.findOne({ phone: cleanPhone });
+    const existingOrder = await Order.findOne({
+      phone: cleanPhone,
+      status: { $ne: "Cancelled" }
+    });
 
-    if (existingOrder) {
-      res.json({ firstOrder: false });
-    } else {
-      res.json({ firstOrder: true });
-    }
+    res.json({
+      firstOrder: !existingOrder
+    });
 
   } catch (err) {
-    console.log(err);
     res.status(500).json({ error: "Server error ❌" });
   }
 });
@@ -104,7 +104,7 @@ app.post("/order", async (req, res) => {
     }
 
     // 🔥 CHECK FIRST ORDER
-const cleanPhone = phone.replace(/\D/g, ""); // sirf numbers
+const cleanPhone = phone.replace(/\D/g, "").slice(-10); // sirf numbers
 
 // ✅ ADD THIS
 if(cleanPhone.length !== 10){
@@ -112,8 +112,9 @@ if(cleanPhone.length !== 10){
 }
 
 const existingOrder = await Order.findOne({
-  phone: cleanPhone
-});
+  phone: cleanPhone,
+  status: { $ne: "Cancelled" }
+}).select("_id");
 
     // 🔥 FINAL TOTAL (frontend already calculated)
 // 🔥 DISCOUNT + FINAL TOTAL (single clean logic)
@@ -121,7 +122,7 @@ let discount = 0;
 let finalTotal = total;
 
 if (!existingOrder) {
-  discount = Math.round((subtotal + deliveryCharge) * 0.10);
+  discount = Math.round(total * 0.10);
   finalTotal = total - discount;
 }
 
@@ -153,7 +154,8 @@ const newOrder = new Order({
   success: true,
   orderId: finalOrderId,
   discount: discount,
-  finalTotal: finalTotal   // 🔥 add this
+  finalTotal: finalTotal,
+  discountApplied: discount > 0   // 🔥 ADD THIS
 });
 
   } catch (error) {
@@ -170,7 +172,7 @@ res.status(500).json({ message: "Order error ❌" });
 
 app.get("/orders-by-phone/:phone", async (req, res) => {
   try {
-    const cleanPhone = req.params.phone.replace(/\D/g, "");
+    const cleanPhone = req.params.phone.replace(/\D/g, "").slice(-10);
 
     const orders = await Order.find({ phone: cleanPhone })
       .sort({ createdAt: -1 });
@@ -297,7 +299,7 @@ app.get("/order", async (req, res) => {
       return res.json([]);
     }
 
-    const cleanPhone = phone.replace(/\D/g, "");
+    const cleanPhone = phone.replace(/\D/g, "").slice(-10);
 
     const order = await Order.findOne({
       phone: cleanPhone,
